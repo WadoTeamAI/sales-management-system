@@ -1,16 +1,13 @@
 #!/usr/bin/env python3
 """
-Vercel用WSGIエントリーポイント
+Vercel用エントリーポイント
 """
 
 from app import app
 
 # Vercel用のハンドラー関数
-def handler(request, response):
-    return app(request, response)
+def handler(event, context):
+    return app
 
-# 通常のWSGI用
+# エクスポート
 application = app
-
-if __name__ == "__main__":
-    app.run()

@@ -7,6 +7,7 @@ from flask import Flask, render_template, request, jsonify, session, redirect, u
 from datetime import datetime, date, timedelta
 import logging
 import json
+import os
 from typing import Dict, Any
 
 # 既存のサービスをインポート
@@ -28,8 +29,24 @@ if os.environ.get('VERCEL'):
     app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 
 # グローバルアプリケーションインスタンス
-sales_app = SalesManagementApp()
-sales_app.setup_external_systems()
+try:
+    sales_app = SalesManagementApp()
+    sales_app.setup_external_systems()
+except Exception as e:
+    logger.error(f"アプリケーション初期化エラー: {e}")
+    # フォールバック用の空のオブジェクト
+    class MockApp:
+        def get_dashboard_data(self): return {'error': 'System initialization failed'}
+        def create_daily_report(self, date=None): return {'error': 'System initialization failed'}
+        def update_daily_report(self, id, data): return {'error': 'System initialization failed'}
+        def submit_daily_report(self, id): return {'error': 'System initialization failed'}
+        def create_target(self, data): return {'error': 'System initialization failed'}
+        def get_target_analysis(self): return {'error': 'System initialization failed'}
+        def get_products_list(self): return []
+        def sync_external_systems(self): return {'error': 'System initialization failed'}
+        def get_team_performance(self, team_id): return {'error': 'System initialization failed'}
+        def export_reports(self, start, end): return {'error': 'System initialization failed'}
+    sales_app = MockApp()
 
 @app.route('/')
 def index():
@@ -59,6 +76,8 @@ def logout():
     session.clear()
     sales_app.logout()
     return redirect(url_for('login'))
+
+
 
 @app.route('/dashboard')
 def dashboard():
