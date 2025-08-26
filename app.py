@@ -262,20 +262,81 @@ def not_found(error):
 def internal_error(error):
     return render_template('error.html', error='内部サーバーエラーが発生しました'), 500
 
-if __name__ == '__main__':
-    # テンプレートディレクトリとスタティックディレクトリを作成
-    import os
+def find_free_port(start_port=5000, max_attempts=10):
+    """利用可能なポートを自動検出"""
+    import socket
     
+    for port in range(start_port, start_port + max_attempts):
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+                sock.bind(('127.0.0.1', port))
+                return port
+        except OSError:
+            continue
+    
+    # 全て失敗した場合はランダムポートを使用
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.bind(('127.0.0.1', 0))
+        return sock.getsockname()[1]
+
+if __name__ == '__main__':
+    import os
+    import webbrowser
+    import threading
+    import time
+    
+    # テンプレートディレクトリとスタティックディレクトリを作成
     directories = ['templates', 'static/css', 'static/js', 'static/img']
     for directory in directories:
         os.makedirs(directory, exist_ok=True)
     
-    # 環境変数からポート設定を取得（Heroku対応）
-    port = int(os.environ.get('PORT', 5000))
-    host = os.environ.get('HOST', '0.0.0.0')
-    debug_mode = os.environ.get('FLASK_DEBUG', 'False').lower() == 'true'
+    # ローカル実行かクラウド実行かを判定
+    is_local = not os.environ.get('PORT')  # Herokuなどではポートが環境変数で設定される
     
-    logger.info("営業管理Webアプリケーションを起動しています...")
-    logger.info(f"アクセス先: http://{host}:{port}")
+    if is_local:
+        # ローカル実行の場合
+        port = find_free_port(5000)  # 利用可能なポートを自動検出
+        host = '127.0.0.1'  # ローカルホストに限定
+        debug_mode = True  # デバッグモードON
+        
+        print("\n" + "="*60)
+        print("🎉 空気清浄機販売営業管理システム - ローカル版")
+        print("="*60)
+        print(f"📍 アクセスURL: http://127.0.0.1:{port}")
+        print(f"🔧 デバッグモード: 有効")
+        print("📋 デモユーザー:")
+        print("   u001 - 田中太郎 (営業担当)")
+        print("   u002 - 佐藤花子 (営業担当)")
+        print("   u003 - 山田次郎 (チームリーダー)")
+        print("   u004 - 鈴木一郎 (マネージャー)")
+        print("="*60)
+        print("⚡ サーバー起動中...")
+        
+        # 3秒後にブラウザを自動で開く
+        def open_browser():
+            time.sleep(3)
+            try:
+                webbrowser.open(f'http://127.0.0.1:{port}')
+                print("🌐 ブラウザを自動で開きました")
+            except:
+                print("🌐 ブラウザの自動起動に失敗しました。手動でアクセスしてください。")
+        
+        threading.Thread(target=open_browser, daemon=True).start()
+        
+    else:
+        # クラウド実行の場合（Heroku等）
+        port = int(os.environ.get('PORT', 5000))
+        host = '0.0.0.0'
+        debug_mode = os.environ.get('FLASK_DEBUG', 'False').lower() == 'true'
+        
+        logger.info("営業管理Webアプリケーション（クラウド版）を起動しています...")
+        logger.info(f"アクセス先: http://{host}:{port}")
     
-    app.run(debug=debug_mode, host=host, port=port)
+    try:
+        app.run(debug=debug_mode, host=host, port=port, threaded=True)
+    except KeyboardInterrupt:
+        print("\n⛔ サーバーを停止しました")
+    except Exception as e:
+        print(f"\n❌ サーバー起動エラー: {e}")
+        if is_local:
+            print("💡 別のポートで再試行してください: PORT=8080 python app.py")
