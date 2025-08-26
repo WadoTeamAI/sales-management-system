@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block title %}ログイン - 営業管理システム{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6 col-lg-4">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <div class="text-center mb-4">
+                    <i class="bi bi-graph-up-arrow text-primary" style="font-size: 3rem;"></i>
+                    <h2 class="card-title">営業管理システム</h2>
+                    <p class="text-muted">空気清浄機販売営業向け日報・目標管理</p>
+                </div>
+                
+                {% if error %}
+                <div class="alert alert-danger" role="alert">
+                    <i class="bi bi-exclamation-triangle"></i> {{ error }}
+                </div>
+                {% endif %}
+                
+                <form method="post">
+                    <div class="mb-3">
+                        <label for="user_id" class="form-label">ユーザーID</label>
+                        <input type="text" class="form-control" id="user_id" name="user_id" required>
+                        <div class="form-text">
+                            デモ用ID: u001 (田中太郎), u002 (佐藤花子), u003 (山田次郎), u004 (鈴木一郎)
+                        </div>
+                    </div>
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-box-arrow-in-right"></i> ログイン
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <div class="card mt-3">
+            <div class="card-body">
+                <h6 class="card-title">システム機能</h6>
+                <ul class="list-unstyled mb-0">
+                    <li><i class="bi bi-journal-text text-success"></i> 日報作成・管理</li>
+                    <li><i class="bi bi-bullseye text-info"></i> 目標設定・進捗追跡</li>
+                    <li><i class="bi bi-graph-up text-warning"></i> 売上分析・レポート</li>
+                    <li><i class="bi bi-people text-primary"></i> チーム管理</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<style>
+body {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+}
+.card {
+    border: none;
+    border-radius: 10px;
+}
+</style>
+{% endblock %}

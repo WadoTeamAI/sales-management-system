@@ -1,0 +1,363 @@
+{% extends "base.html" %}
+
+{% block title %}日報管理 - 営業管理システム{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1><i class="bi bi-journal-text"></i> 日報管理</h1>
+    <button class="btn btn-primary" onclick="createNewReport()">
+        <i class="bi bi-journal-plus"></i> 新規作成
+    </button>
+</div>
+
+<div class="row">
+    <!-- 日報一覧 -->
+    <div class="col-lg-8 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-list"></i> 日報一覧</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>日付</th>
+                                <th>労働時間</th>
+                                <th>訪問件数</th>
+                                <th>売上件数</th>
+                                <th>交通費</th>
+                                <th>状況</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="reportsTable">
+                            <tr>
+                                <td colspan="7" class="text-center text-muted py-3">
+                                    <i class="bi bi-arrow-clockwise spin"></i>
+                                    データを読み込み中...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 日報編集フォーム -->
+    <div class="col-lg-4 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-pencil"></i> 日報編集</h5>
+            </div>
+            <div class="card-body">
+                <form id="reportForm">
+                    <input type="hidden" id="reportId" name="report_id">
+                    
+                    <div class="mb-3">
+                        <label for="reportDate" class="form-label">日付</label>
+                        <input type="date" class="form-control" id="reportDate" name="report_date" readonly>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="workingHours" class="form-label">労働時間</label>
+                        <input type="number" class="form-control" id="workingHours" name="working_hours" 
+                               step="0.5" min="0" max="24">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="travelExpense" class="form-label">交通費</label>
+                        <input type="number" class="form-control" id="travelExpense" name="travel_expense" min="0">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="activities" class="form-label">活動内容</label>
+                        <textarea class="form-control" id="activities" name="activities" rows="4" 
+                                  placeholder="今日の営業活動を記録してください"></textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="challenges" class="form-label">課題・問題点</label>
+                        <textarea class="form-control" id="challenges" name="challenges" rows="3" 
+                                  placeholder="困ったことや課題があれば記録してください"></textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="nextActions" class="form-label">明日の予定・アクション</label>
+                        <textarea class="form-control" id="nextActions" name="next_actions" rows="3" 
+                                  placeholder="明日のアクションプランを記録してください"></textarea>
+                    </div>
+                    
+                    <div class="d-grid gap-2">
+                        <button type="button" class="btn btn-success" onclick="saveReport()">
+                            <i class="bi bi-floppy"></i> 保存
+                        </button>
+                        <button type="button" class="btn btn-primary" onclick="submitReport()" disabled>
+                            <i class="bi bi-send"></i> 提出
+                        </button>
+                        <button type="button" class="btn btn-secondary" onclick="clearForm()">
+                            <i class="bi bi-x-circle"></i> クリア
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 訪問記録モーダル -->
+<div class="modal fade" id="visitModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">訪問記録追加</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="visitForm">
+                    <div class="mb-3">
+                        <label for="visitCustomer" class="form-label">顧客名</label>
+                        <input type="text" class="form-control" id="visitCustomer" name="customer_name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="visitTime" class="form-label">訪問時間</label>
+                        <input type="time" class="form-control" id="visitTime" name="visit_time" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="visitPurpose" class="form-label">目的</label>
+                        <input type="text" class="form-control" id="visitPurpose" name="purpose" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="visitOutcome" class="form-label">結果</label>
+                        <textarea class="form-control" id="visitOutcome" name="outcome" rows="3"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+                <button type="button" class="btn btn-primary" onclick="addVisit()">追加</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentReportId = null;
+
+// 日報一覧を読み込み
+function loadReports() {
+    fetch('/api/reports')
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                console.error('Error:', data.error);
+                return;
+            }
+            
+            updateReportsTable(data.reports || []);
+        })
+        .catch(error => {
+            console.error('Error loading reports:', error);
+        });
+}
+
+function updateReportsTable(reports) {
+    const tableBody = document.getElementById('reportsTable');
+    
+    if (reports.length === 0) {
+        tableBody.innerHTML = `
+            <tr>
+                <td colspan="7" class="text-center text-muted py-3">
+                    <i class="bi bi-journal"></i>
+                    日報がありません
+                </td>
+            </tr>
+        `;
+        return;
+    }
+    
+    let html = '';
+    reports.forEach(report => {
+        const statusBadge = getStatusBadge(report.status);
+        
+        html += `
+            <tr>
+                <td>${report.report_date}</td>
+                <td>${report.working_hours}時間</td>
+                <td>${report.visits_count}件</td>
+                <td>${report.sales_count}件</td>
+                <td>¥${report.travel_expense.toLocaleString()}</td>
+                <td>${statusBadge}</td>
+                <td>
+                    <button class="btn btn-sm btn-outline-primary" onclick="editReport('${report.report_id}')">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                </td>
+            </tr>
+        `;
+    });
+    
+    tableBody.innerHTML = html;
+}
+
+function getStatusBadge(status) {
+    switch(status) {
+        case 'approved':
+            return '<span class="badge bg-success">承認済み</span>';
+        case 'submitted':
+            return '<span class="badge bg-warning">提出済み</span>';
+        case 'draft':
+        default:
+            return '<span class="badge bg-secondary">下書き</span>';
+    }
+}
+
+function createNewReport() {
+    fetch('/api/reports', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            action: 'create'
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            alert('エラー: ' + data.error);
+            return;
+        }
+        
+        // 新しい日報を編集フォームに読み込み
+        editReport(data.report_id);
+        loadReports();
+    })
+    .catch(error => {
+        console.error('Error creating report:', error);
+        alert('日報の作成に失敗しました');
+    });
+}
+
+function editReport(reportId) {
+    currentReportId = reportId;
+    
+    // フォームをクリア
+    document.getElementById('reportForm').reset();
+    document.getElementById('reportId').value = reportId;
+    
+    // 今日の日付を設定（実際の実装では報告書データから取得）
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('reportDate').value = today;
+    
+    // 提出ボタンを有効化
+    document.querySelector('button[onclick="submitReport()"]').disabled = false;
+}
+
+function saveReport() {
+    if (!currentReportId) {
+        alert('日報を選択してください');
+        return;
+    }
+    
+    const formData = new FormData(document.getElementById('reportForm'));
+    const reportData = {
+        working_hours: parseFloat(formData.get('working_hours')) || 8.0,
+        travel_expense: parseInt(formData.get('travel_expense')) || 0,
+        activities: [
+            {
+                time: '09:00',
+                activity: formData.get('activities') || '',
+                detail: formData.get('activities') || ''
+            }
+        ],
+        challenges: formData.get('challenges') || '',
+        next_actions: formData.get('next_actions') || ''
+    };
+    
+    fetch('/api/reports', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            action: 'update',
+            report_id: currentReportId,
+            report_data: reportData
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            alert('エラー: ' + data.error);
+            return;
+        }
+        
+        alert('日報を保存しました');
+        loadReports();
+    })
+    .catch(error => {
+        console.error('Error saving report:', error);
+        alert('日報の保存に失敗しました');
+    });
+}
+
+function submitReport() {
+    if (!currentReportId) {
+        alert('日報を選択してください');
+        return;
+    }
+    
+    if (!confirm('日報を提出しますか？提出後は編集に制限があります。')) {
+        return;
+    }
+    
+    fetch('/api/reports', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            action: 'submit',
+            report_id: currentReportId
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            alert('エラー: ' + data.error);
+            return;
+        }
+        
+        alert('日報を提出しました');
+        clearForm();
+        loadReports();
+    })
+    .catch(error => {
+        console.error('Error submitting report:', error);
+        alert('日報の提出に失敗しました');
+    });
+}
+
+function clearForm() {
+    document.getElementById('reportForm').reset();
+    currentReportId = null;
+    document.querySelector('button[onclick="submitReport()"]').disabled = true;
+}
+
+function addVisit() {
+    // 訪問記録の実装（簡略化）
+    alert('訪問記録機能は実装予定です');
+    const modal = bootstrap.Modal.getInstance(document.getElementById('visitModal'));
+    modal.hide();
+}
+
+// ページ読み込み時に日報一覧を読み込み
+document.addEventListener('DOMContentLoaded', function() {
+    loadReports();
+});
+</script>
+{% endblock %}

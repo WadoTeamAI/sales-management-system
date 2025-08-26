@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+
+{% block title %}エラー - 営業管理システム{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6 col-lg-5">
+        <div class="text-center">
+            <div class="mb-4">
+                <i class="bi bi-exclamation-triangle-fill text-warning" style="font-size: 5rem;"></i>
+            </div>
+            
+            <h1 class="display-4 text-muted mb-4">申し訳ございません</h1>
+            
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title text-danger mb-3">エラーが発生しました</h5>
+                    
+                    {% if error %}
+                        <p class="card-text text-muted">{{ error }}</p>
+                    {% else %}
+                        <p class="card-text text-muted">
+                            予期しないエラーが発生しました。<br>
+                            お手数ですが、しばらく時間をおいて再度お試しください。
+                        </p>
+                    {% endif %}
+                    
+                    <div class="mt-4">
+                        <a href="{{ url_for('dashboard') }}" class="btn btn-primary me-2">
+                            <i class="bi bi-house"></i> ダッシュボードに戻る
+                        </a>
+                        <button class="btn btn-outline-secondary" onclick="history.back()">
+                            <i class="bi bi-arrow-left"></i> 前のページに戻る
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card mt-3">
+                <div class="card-body">
+                    <h6 class="card-title">お困りですか？</h6>
+                    <p class="card-text small text-muted">
+                        問題が解決しない場合は、システム管理者にお問い合わせください。
+                    </p>
+                    <ul class="list-unstyled small text-muted">
+                        <li><i class="bi bi-envelope"></i> support@company.com</li>
+                        <li><i class="bi bi-telephone"></i> 03-1234-5678</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row justify-content-center mt-5">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-question-circle"></i> よくある質問</h5>
+            </div>
+            <div class="card-body">
+                <div class="accordion" id="faqAccordion">
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button" 
+                                    data-bs-toggle="collapse" data-bs-target="#faq1">
+                                ログインできません
+                            </button>
+                        </h2>
+                        <div id="faq1" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                            <div class="accordion-body">
+                                <p>以下をご確認ください：</p>
+                                <ul>
+                                    <li>ユーザーIDを正しく入力しているか</li>
+                                    <li>CapsLockがオンになっていないか</li>
+                                    <li>ブラウザのキャッシュをクリアしてみる</li>
+                                </ul>
+                                <p>それでも解決しない場合は管理者にお問い合わせください。</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button" 
+                                    data-bs-toggle="collapse" data-bs-target="#faq2">
+                                データが表示されません
+                            </button>
+                        </h2>
+                        <div id="faq2" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                            <div class="accordion-body">
+                                <p>以下の手順をお試しください：</p>
+                                <ul>
+                                    <li>ページを再読み込み（F5キー）</li>
+                                    <li>インターネット接続を確認</li>
+                                    <li>他のブラウザで試す</li>
+                                    <li>ブラウザを最新版に更新</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button" 
+                                    data-bs-toggle="collapse" data-bs-target="#faq3">
+                                データの保存に失敗します
+                            </button>
+                        </h2>
+                        <div id="faq3" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                            <div class="accordion-body">
+                                <p>保存エラーの原因：</p>
+                                <ul>
+                                    <li>必須項目が未入力</li>
+                                    <li>データ形式が正しくない</li>
+                                    <li>一時的なサーバーエラー</li>
+                                    <li>権限不足</li>
+                                </ul>
+                                <p>エラーメッセージを確認し、入力内容を見直してください。</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<style>
+.display-4 {
+    font-size: 2.5rem;
+}
+
+@media (max-width: 576px) {
+    .display-4 {
+        font-size: 2rem;
+    }
+}
+</style>
+{% endblock %}

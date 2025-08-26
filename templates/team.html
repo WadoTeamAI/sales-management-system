@@ -1,0 +1,465 @@
+{% extends "base.html" %}
+
+{% block title %}チーム管理 - 営業管理システム{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1><i class="bi bi-people"></i> チーム管理</h1>
+    <div>
+        <button class="btn btn-outline-secondary" onclick="refreshTeamData()">
+            <i class="bi bi-arrow-clockwise"></i> 更新
+        </button>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#memberModal">
+            <i class="bi bi-person-plus"></i> メンバー追加
+        </button>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-lg-4 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-info-circle"></i> チーム情報</h5>
+            </div>
+            <div class="card-body" id="teamInfo">
+                <div class="text-center text-muted py-3">
+                    <i class="bi bi-arrow-clockwise spin"></i>
+                    データを読み込み中...
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-8 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-bar-chart"></i> チーム成績</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="teamPerformanceChart" height="100"></canvas>
+                <div id="performanceMetrics" class="mt-3">
+                    <!-- パフォーマンス指標 -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-people-fill"></i> メンバー一覧</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>名前</th>
+                                <th>役職</th>
+                                <th>今月の売上</th>
+                                <th>目標達成率</th>
+                                <th>日報提出率</th>
+                                <th>最終活動日</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="membersTable">
+                            <tr>
+                                <td colspan="7" class="text-center text-muted py-3">
+                                    <i class="bi bi-arrow-clockwise spin"></i>
+                                    データを読み込み中...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- メンバー追加/編集モーダル -->
+<div class="modal fade" id="memberModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">メンバー管理</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="memberForm">
+                    <div class="mb-3">
+                        <label for="memberName" class="form-label">名前</label>
+                        <input type="text" class="form-control" id="memberName" name="name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="memberEmail" class="form-label">メールアドレス</label>
+                        <input type="email" class="form-control" id="memberEmail" name="email" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="memberRole" class="form-label">役職</label>
+                        <select class="form-select" id="memberRole" name="role" required>
+                            <option value="">選択してください</option>
+                            <option value="sales">営業担当</option>
+                            <option value="team_leader">チームリーダー</option>
+                            <option value="manager">マネージャー</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="memberArea" class="form-label">担当エリア</label>
+                        <input type="text" class="form-control" id="memberArea" name="area">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+                <button type="button" class="btn btn-primary" onclick="saveMember()">保存</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- メンバー詳細モーダル -->
+<div class="modal fade" id="memberDetailModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="memberDetailTitle">メンバー詳細</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="memberDetailContent">
+                    <!-- メンバー詳細情報 -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">閉じる</button>
+                <button type="button" class="btn btn-primary" onclick="sendMessage()">メッセージ送信</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let teamPerformanceChart;
+let teamData = {};
+
+function loadTeamData() {
+    fetch('/api/team')
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                console.error('Error:', data.error);
+                return;
+            }
+            
+            teamData = data;
+            updateTeamInfo(data);
+            updateMembersTable(data.members || []);
+            updateTeamPerformanceChart(data.performance || {});
+        })
+        .catch(error => {
+            console.error('Error loading team data:', error);
+        });
+}
+
+function updateTeamInfo(data) {
+    const teamInfoEl = document.getElementById('teamInfo');
+    
+    const html = `
+        <h6 class="mb-3">${data.team_name}</h6>
+        <div class="row text-center mb-3">
+            <div class="col-6">
+                <div class="h4 text-primary">${data.members?.length || 0}</div>
+                <small class="text-muted">メンバー数</small>
+            </div>
+            <div class="col-6">
+                <div class="h4 text-success">${Math.round(data.performance?.achievement_rate || 0)}%</div>
+                <small class="text-muted">チーム達成率</small>
+            </div>
+        </div>
+        
+        <hr>
+        
+        <div class="mb-2">
+            <strong>今月の売上</strong><br>
+            <span class="h5 text-success">¥${(data.performance?.total_sales || 0).toLocaleString()}</span>
+        </div>
+        <div class="mb-2">
+            <strong>目標売上</strong><br>
+            <span class="text-muted">¥${(data.performance?.target_sales || 0).toLocaleString()}</span>
+        </div>
+        
+        <div class="progress mt-3">
+            <div class="progress-bar bg-success" role="progressbar" 
+                 style="width: ${Math.min(data.performance?.achievement_rate || 0, 100)}%">
+            </div>
+        </div>
+        <small class="text-muted">目標達成状況</small>
+    `;
+    
+    teamInfoEl.innerHTML = html;
+}
+
+function updateMembersTable(members) {
+    const tableBody = document.getElementById('membersTable');
+    
+    if (members.length === 0) {
+        tableBody.innerHTML = `
+            <tr>
+                <td colspan="7" class="text-center text-muted py-3">
+                    <i class="bi bi-people"></i>
+                    メンバーデータがありません
+                </td>
+            </tr>
+        `;
+        return;
+    }
+    
+    let html = '';
+    members.forEach(member => {
+        const roleLabel = getRoleLabel(member.role);
+        const monthlySales = Math.floor(Math.random() * 1500000) + 500000; // サンプルデータ
+        const achievementRate = Math.floor(Math.random() * 40) + 60; // 60-100%
+        const reportRate = Math.floor(Math.random() * 30) + 70; // 70-100%
+        
+        html += `
+            <tr>
+                <td>
+                    <div class="d-flex align-items-center">
+                        <div class="avatar-placeholder me-3">
+                            <i class="bi bi-person-circle text-secondary" style="font-size: 2rem;"></i>
+                        </div>
+                        <div>
+                            <strong>${member.name}</strong><br>
+                            <small class="text-muted">${member.user_id}</small>
+                        </div>
+                    </div>
+                </td>
+                <td>
+                    <span class="badge ${getRoleBadgeClass(member.role)}">${roleLabel}</span>
+                </td>
+                <td>¥${monthlySales.toLocaleString()}</td>
+                <td>
+                    <div class="d-flex align-items-center">
+                        <div class="progress me-2" style="width: 60px; height: 8px;">
+                            <div class="progress-bar ${getAchievementBadgeClass(achievementRate)}" 
+                                 style="width: ${achievementRate}%"></div>
+                        </div>
+                        <small>${achievementRate}%</small>
+                    </div>
+                </td>
+                <td>
+                    <span class="badge ${getReportRateBadgeClass(reportRate)}">${reportRate}%</span>
+                </td>
+                <td>
+                    <small class="text-muted">2024-08-26</small>
+                </td>
+                <td>
+                    <button class="btn btn-sm btn-outline-primary me-1" 
+                            onclick="viewMemberDetail('${member.user_id}')">
+                        <i class="bi bi-eye"></i>
+                    </button>
+                    <div class="btn-group">
+                        <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" 
+                                data-bs-toggle="dropdown">
+                            <i class="bi bi-gear"></i>
+                        </button>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="#" onclick="editMember('${member.user_id}')">
+                                <i class="bi bi-pencil"></i> 編集
+                            </a></li>
+                            <li><a class="dropdown-item" href="#" onclick="sendMessage('${member.user_id}')">
+                                <i class="bi bi-chat"></i> メッセージ
+                            </a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item text-danger" href="#" onclick="suspendMember('${member.user_id}')">
+                                <i class="bi bi-pause-circle"></i> 一時停止
+                            </a></li>
+                        </ul>
+                    </div>
+                </td>
+            </tr>
+        `;
+    });
+    
+    tableBody.innerHTML = html;
+}
+
+function updateTeamPerformanceChart(performance) {
+    const ctx = document.getElementById('teamPerformanceChart').getContext('2d');
+    
+    if (teamPerformanceChart) {
+        teamPerformanceChart.destroy();
+    }
+    
+    // サンプルデータ
+    const monthlyData = {
+        labels: ['1月', '2月', '3月', '4月', '5月', '6月'],
+        achieved: [85, 92, 78, 95, 88, 91],
+        target: [100, 100, 100, 100, 100, 100]
+    };
+    
+    teamPerformanceChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: monthlyData.labels,
+            datasets: [{
+                label: 'チーム達成率',
+                data: monthlyData.achieved,
+                backgroundColor: 'rgba(13, 110, 253, 0.8)',
+                borderColor: 'rgba(13, 110, 253, 1)',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 120,
+                    ticks: {
+                        callback: function(value) {
+                            return value + '%';
+                        }
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    display: false
+                }
+            }
+        }
+    });
+}
+
+function getRoleLabel(role) {
+    const labels = {
+        'sales': '営業担当',
+        'team_leader': 'チームリーダー',
+        'manager': 'マネージャー',
+        'admin': '管理者'
+    };
+    return labels[role] || role;
+}
+
+function getRoleBadgeClass(role) {
+    const classes = {
+        'sales': 'bg-primary',
+        'team_leader': 'bg-success',
+        'manager': 'bg-warning',
+        'admin': 'bg-danger'
+    };
+    return classes[role] || 'bg-secondary';
+}
+
+function getAchievementBadgeClass(rate) {
+    if (rate >= 100) return 'bg-success';
+    if (rate >= 80) return 'bg-info';
+    if (rate >= 60) return 'bg-warning';
+    return 'bg-danger';
+}
+
+function getReportRateBadgeClass(rate) {
+    if (rate >= 90) return 'bg-success';
+    if (rate >= 70) return 'bg-warning';
+    return 'bg-danger';
+}
+
+function viewMemberDetail(userId) {
+    const member = teamData.members?.find(m => m.user_id === userId);
+    if (!member) return;
+    
+    document.getElementById('memberDetailTitle').textContent = `${member.name} - 詳細情報`;
+    
+    const html = `
+        <div class="row">
+            <div class="col-md-8">
+                <h6>基本情報</h6>
+                <table class="table table-sm">
+                    <tr><td>ユーザーID</td><td>${member.user_id}</td></tr>
+                    <tr><td>名前</td><td>${member.name}</td></tr>
+                    <tr><td>役職</td><td>${getRoleLabel(member.role)}</td></tr>
+                    <tr><td>所属チーム</td><td>${teamData.team_name}</td></tr>
+                </table>
+                
+                <h6>今月の実績</h6>
+                <div class="row text-center">
+                    <div class="col-3">
+                        <div class="h4 text-primary">15</div>
+                        <small class="text-muted">訪問件数</small>
+                    </div>
+                    <div class="col-3">
+                        <div class="h4 text-success">8</div>
+                        <small class="text-muted">成約件数</small>
+                    </div>
+                    <div class="col-3">
+                        <div class="h4 text-info">92%</div>
+                        <small class="text-muted">日報提出率</small>
+                    </div>
+                    <div class="col-3">
+                        <div class="h4 text-warning">85%</div>
+                        <small class="text-muted">目標達成率</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <h6>最近の活動</h6>
+                <ul class="list-unstyled">
+                    <li class="mb-2">
+                        <i class="bi bi-journal text-primary"></i>
+                        <small>日報提出 (今日)</small>
+                    </li>
+                    <li class="mb-2">
+                        <i class="bi bi-person text-success"></i>
+                        <small>顧客訪問 (昨日)</small>
+                    </li>
+                    <li class="mb-2">
+                        <i class="bi bi-trophy text-warning"></i>
+                        <small>目標達成 (今週)</small>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    `;
+    
+    document.getElementById('memberDetailContent').innerHTML = html;
+    
+    const modal = new bootstrap.Modal(document.getElementById('memberDetailModal'));
+    modal.show();
+}
+
+function editMember(userId) {
+    alert(`メンバー編集機能は開発中です (User ID: ${userId})`);
+}
+
+function sendMessage(userId) {
+    alert(`メッセージ送信機能は開発中です (User ID: ${userId})`);
+}
+
+function suspendMember(userId) {
+    if (confirm('このメンバーを一時停止しますか？')) {
+        alert(`メンバー一時停止機能は開発中です (User ID: ${userId})`);
+    }
+}
+
+function saveMember() {
+    alert('メンバー追加機能は開発中です');
+    const modal = bootstrap.Modal.getInstance(document.getElementById('memberModal'));
+    modal.hide();
+}
+
+function refreshTeamData() {
+    loadTeamData();
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadTeamData();
+});
+</script>
+{% endblock %}

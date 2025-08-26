@@ -1,0 +1,18 @@
+# 空気清浄機販売営業向け日報・目標管理システム
+# Web本番環境用パッケージ
+
+# Webアプリケーション
+Flask>=2.3.0
+Werkzeug>=2.3.0
+
+# HTTP リクエスト
+requests>=2.31.0
+
+# 日付・時刻処理
+python-dateutil>=2.8.2
+
+# 環境設定
+python-dotenv>=1.0.0
+
+# 軽量WSGI サーバー（本番用）
+gunicorn>=21.2.0

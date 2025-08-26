@@ -1,0 +1,420 @@
+{% extends "base.html" %}
+
+{% block title %}商品管理 - 営業管理システム{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1><i class="bi bi-box"></i> 商品管理</h1>
+    <div>
+        <button class="btn btn-outline-secondary" onclick="refreshProducts()">
+            <i class="bi bi-arrow-clockwise"></i> 更新
+        </button>
+        <button class="btn btn-success" onclick="downloadCatalog()">
+            <i class="bi bi-download"></i> カタログDL
+        </button>
+    </div>
+</div>
+
+<div class="row">
+    <!-- 商品一覧 -->
+    <div class="col-lg-8 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-grid"></i> 商品カタログ</h5>
+            </div>
+            <div class="card-body">
+                <div id="productsList">
+                    <div class="text-center text-muted py-3">
+                        <i class="bi bi-arrow-clockwise spin"></i>
+                        データを読み込み中...
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 商品情報サマリー -->
+    <div class="col-lg-4 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-info-circle"></i> 商品サマリー</h5>
+            </div>
+            <div class="card-body">
+                <div class="row text-center mb-3">
+                    <div class="col-4">
+                        <div class="h4 text-primary" id="totalProducts">0</div>
+                        <small class="text-muted">総商品数</small>
+                    </div>
+                    <div class="col-4">
+                        <div class="h4 text-success" id="inStockProducts">0</div>
+                        <small class="text-muted">在庫あり</small>
+                    </div>
+                    <div class="col-4">
+                        <div class="h4 text-danger" id="lowStockProducts">0</div>
+                        <small class="text-muted">在庫少</small>
+                    </div>
+                </div>
+                
+                <hr>
+                
+                <h6>価格帯別分布</h6>
+                <canvas id="priceRangeChart" height="150"></canvas>
+            </div>
+        </div>
+        
+        <div class="card mt-3">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-trophy"></i> 人気商品</h5>
+            </div>
+            <div class="card-body">
+                <div id="popularProducts">
+                    <div class="text-center text-muted py-3">
+                        売上データを分析中...
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 商品詳細モーダル -->
+<div class="modal fade" id="productModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="productModalTitle">商品詳細</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="productDetails">
+                    <!-- 商品詳細がここに表示されます -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">閉じる</button>
+                <button type="button" class="btn btn-primary" onclick="addToProposal()">提案書に追加</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 在庫アラートモーダル -->
+<div class="modal fade" id="stockAlertModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">在庫アラート設定</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="stockAlertForm">
+                    <div class="mb-3">
+                        <label for="alertThreshold" class="form-label">アラート閾値</label>
+                        <input type="number" class="form-control" id="alertThreshold" min="0" value="5">
+                        <div class="form-text">この数量以下になったときにアラートを表示</div>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="emailAlert" checked>
+                        <label class="form-check-label" for="emailAlert">
+                            メールでも通知する
+                        </label>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+                <button type="button" class="btn btn-primary" onclick="saveStockAlert()">設定</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let productsData = [];
+let priceRangeChart;
+
+// 商品一覧を読み込み
+function loadProducts() {
+    fetch('/api/products')
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                console.error('Error:', data.error);
+                return;
+            }
+            
+            productsData = data.products || [];
+            updateProductsList(productsData);
+            updateProductsSummary(productsData);
+            updatePriceRangeChart(productsData);
+            updatePopularProducts();
+        })
+        .catch(error => {
+            console.error('Error loading products:', error);
+        });
+}
+
+function updateProductsList(products) {
+    const productsList = document.getElementById('productsList');
+    
+    if (products.length === 0) {
+        productsList.innerHTML = `
+            <div class="text-center text-muted py-3">
+                <i class="bi bi-box"></i>
+                商品データがありません
+            </div>
+        `;
+        return;
+    }
+    
+    let html = '<div class="row">';
+    products.forEach(product => {
+        const stockStatus = getStockStatus(product.stock_quantity);
+        
+        html += `
+            <div class="col-md-6 mb-3">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h6 class="card-title">${product.product_name}</h6>
+                            <span class="badge ${stockStatus.class}">${stockStatus.text}</span>
+                        </div>
+                        <p class="text-muted small mb-2">型番: ${product.model_number}</p>
+                        <p class="text-muted small mb-2">カテゴリ: ${getCategoryLabel(product.category)}</p>
+                        
+                        <div class="row align-items-center">
+                            <div class="col-6">
+                                <div class="h5 text-primary mb-0">¥${product.price.toLocaleString()}</div>
+                                <small class="text-muted">販売価格</small>
+                            </div>
+                            <div class="col-6 text-end">
+                                <div class="h6 mb-0">在庫: ${product.stock_quantity}個</div>
+                                <small class="text-muted">利益率: ${Math.round(((product.price - product.cost) / product.price) * 100)}%</small>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-3">
+                            <button class="btn btn-outline-primary btn-sm me-2" 
+                                    onclick="showProductDetails('${product.product_id}')">
+                                <i class="bi bi-eye"></i> 詳細
+                            </button>
+                            <button class="btn btn-outline-success btn-sm" 
+                                    onclick="createQuote('${product.product_id}')">
+                                <i class="bi bi-file-text"></i> 見積作成
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    html += '</div>';
+    
+    productsList.innerHTML = html;
+}
+
+function updateProductsSummary(products) {
+    const total = products.length;
+    const inStock = products.filter(p => p.stock_quantity > 5).length;
+    const lowStock = products.filter(p => p.stock_quantity > 0 && p.stock_quantity <= 5).length;
+    
+    document.getElementById('totalProducts').textContent = total;
+    document.getElementById('inStockProducts').textContent = inStock;
+    document.getElementById('lowStockProducts').textContent = lowStock;
+}
+
+function updatePriceRangeChart(products) {
+    const priceRanges = {
+        '~5万円': 0,
+        '5-10万円': 0,
+        '10-20万円': 0,
+        '20万円~': 0
+    };
+    
+    products.forEach(product => {
+        const price = product.price;
+        if (price < 50000) priceRanges['~5万円']++;
+        else if (price < 100000) priceRanges['5-10万円']++;
+        else if (price < 200000) priceRanges['10-20万円']++;
+        else priceRanges['20万円~']++;
+    });
+    
+    const ctx = document.getElementById('priceRangeChart').getContext('2d');
+    
+    if (priceRangeChart) {
+        priceRangeChart.destroy();
+    }
+    
+    priceRangeChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: Object.keys(priceRanges),
+            datasets: [{
+                data: Object.values(priceRanges),
+                backgroundColor: [
+                    '#28a745',
+                    '#17a2b8',
+                    '#ffc107',
+                    '#dc3545'
+                ]
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        stepSize: 1
+                    }
+                }
+            }
+        }
+    });
+}
+
+function updatePopularProducts() {
+    // サンプルデータ（実際は売上データから算出）
+    const popularProducts = [
+        { name: 'エアクリーン Pro', sales: 15, trend: 'up' },
+        { name: 'エアクリーン Business', sales: 8, trend: 'down' }
+    ];
+    
+    const popularProductsEl = document.getElementById('popularProducts');
+    let html = '';
+    
+    popularProducts.forEach((product, index) => {
+        const trendIcon = product.trend === 'up' ? 'bi-trending-up text-success' : 'bi-trending-down text-danger';
+        
+        html += `
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <div>
+                    <span class="badge bg-primary me-2">${index + 1}</span>
+                    ${product.name}
+                </div>
+                <div class="text-end">
+                    <div class="small">
+                        <i class="bi ${trendIcon}"></i>
+                        ${product.sales}件
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    popularProductsEl.innerHTML = html;
+}
+
+function getStockStatus(quantity) {
+    if (quantity === 0) {
+        return { class: 'bg-danger', text: '在庫切れ' };
+    } else if (quantity <= 5) {
+        return { class: 'bg-warning', text: '在庫少' };
+    } else {
+        return { class: 'bg-success', text: '在庫あり' };
+    }
+}
+
+function getCategoryLabel(category) {
+    const labels = {
+        'home_use': '家庭用',
+        'business_use': '業務用',
+        'industrial_use': '工業用'
+    };
+    return labels[category] || category;
+}
+
+function showProductDetails(productId) {
+    const product = productsData.find(p => p.product_id === productId);
+    if (!product) return;
+    
+    document.getElementById('productModalTitle').textContent = product.product_name;
+    
+    let html = `
+        <div class="row">
+            <div class="col-md-8">
+                <h6>基本情報</h6>
+                <table class="table table-sm">
+                    <tr><td>商品名</td><td>${product.product_name}</td></tr>
+                    <tr><td>型番</td><td>${product.model_number}</td></tr>
+                    <tr><td>カテゴリ</td><td>${getCategoryLabel(product.category)}</td></tr>
+                    <tr><td>販売価格</td><td>¥${product.price.toLocaleString()}</td></tr>
+                    <tr><td>原価</td><td>¥${product.cost.toLocaleString()}</td></tr>
+                    <tr><td>在庫数量</td><td>${product.stock_quantity}個</td></tr>
+                </table>
+                
+                <h6>製品仕様</h6>
+                <table class="table table-sm">
+    `;
+    
+    Object.entries(product.specifications).forEach(([key, value]) => {
+        html += `<tr><td>${key}</td><td>${value}</td></tr>`;
+    });
+    
+    html += `
+                </table>
+            </div>
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-body text-center">
+                        <i class="bi bi-image" style="font-size: 4rem; color: #dee2e6;"></i>
+                        <p class="mt-2 small text-muted">商品画像</p>
+                    </div>
+                </div>
+                
+                <div class="mt-3">
+                    <h6>営業ポイント</h6>
+                    <ul class="list-unstyled small">
+                        <li><i class="bi bi-check text-success"></i> 高性能HEPAフィルター</li>
+                        <li><i class="bi bi-check text-success"></i> 省エネ設計</li>
+                        <li><i class="bi bi-check text-success"></i> 静音運転</li>
+                        <li><i class="bi bi-check text-success"></i> アフターサービス充実</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.getElementById('productDetails').innerHTML = html;
+    
+    const modal = new bootstrap.Modal(document.getElementById('productModal'));
+    modal.show();
+}
+
+function createQuote(productId) {
+    alert(`商品ID: ${productId} の見積書作成機能は開発中です`);
+}
+
+function addToProposal() {
+    alert('提案書追加機能は開発中です');
+    const modal = bootstrap.Modal.getInstance(document.getElementById('productModal'));
+    modal.hide();
+}
+
+function refreshProducts() {
+    loadProducts();
+}
+
+function downloadCatalog() {
+    alert('商品カタログのダウンロード機能は開発中です');
+}
+
+function saveStockAlert() {
+    alert('在庫アラート設定を保存しました');
+    const modal = bootstrap.Modal.getInstance(document.getElementById('stockAlertModal'));
+    modal.hide();
+}
+
+// ページ読み込み時に商品一覧を読み込み
+document.addEventListener('DOMContentLoaded', function() {
+    loadProducts();
+});
+</script>
+{% endblock %}

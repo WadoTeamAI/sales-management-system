@@ -1,0 +1,395 @@
+{% extends "base.html" %}
+
+{% block title %}目標管理 - 営業管理システム{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1><i class="bi bi-bullseye"></i> 目標管理</h1>
+    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#targetModal">
+        <i class="bi bi-plus-circle"></i> 新規目標設定
+    </button>
+</div>
+
+<div class="row">
+    <!-- 目標一覧 -->
+    <div class="col-lg-8 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-list-task"></i> 現在の目標</h5>
+            </div>
+            <div class="card-body">
+                <div id="targetsList">
+                    <div class="text-center text-muted py-3">
+                        <i class="bi bi-arrow-clockwise spin"></i>
+                        データを読み込み中...
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 目標サマリー -->
+    <div class="col-lg-4 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-graph-up"></i> 進捗サマリー</h5>
+            </div>
+            <div class="card-body">
+                <div class="row text-center mb-3">
+                    <div class="col-6">
+                        <div class="h4 text-success" id="achievedCount">0</div>
+                        <small class="text-muted">達成</small>
+                    </div>
+                    <div class="col-6">
+                        <div class="h4 text-danger" id="criticalCount">0</div>
+                        <small class="text-muted">要注意</small>
+                    </div>
+                </div>
+                
+                <div class="progress mb-3" style="height: 10px;">
+                    <div class="progress-bar bg-success" role="progressbar" id="achievedBar" style="width: 0%"></div>
+                    <div class="progress-bar bg-info" role="progressbar" id="onTrackBar" style="width: 0%"></div>
+                    <div class="progress-bar bg-warning" role="progressbar" id="behindBar" style="width: 0%"></div>
+                    <div class="progress-bar bg-danger" role="progressbar" id="criticalBar" style="width: 0%"></div>
+                </div>
+                
+                <div class="small text-muted">
+                    <div class="d-flex justify-content-between">
+                        <span><i class="bi bi-circle-fill text-success"></i> 達成</span>
+                        <span><i class="bi bi-circle-fill text-info"></i> 順調</span>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <span><i class="bi bi-circle-fill text-warning"></i> 遅れ気味</span>
+                        <span><i class="bi bi-circle-fill text-danger"></i> 要注意</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card mt-3">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-lightbulb"></i> 推奨アクション</h5>
+            </div>
+            <div class="card-body">
+                <div id="recommendations">
+                    <div class="text-center text-muted py-3">
+                        目標データを分析中...
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 目標作成・編集モーダル -->
+<div class="modal fade" id="targetModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">新規目標設定</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="targetForm">
+                    <div class="mb-3">
+                        <label for="targetType" class="form-label">目標タイプ</label>
+                        <select class="form-select" id="targetType" name="target_type" required>
+                            <option value="">選択してください</option>
+                            <option value="sales_amount">売上目標</option>
+                            <option value="profit">利益目標</option>
+                            <option value="quantity">販売数量</option>
+                            <option value="new_customer">新規顧客獲得</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="targetValue" class="form-label">目標値</label>
+                        <input type="number" class="form-control" id="targetValue" name="target_value" required>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-6">
+                            <label for="periodStart" class="form-label">開始日</label>
+                            <input type="date" class="form-control" id="periodStart" name="period_start" required>
+                        </div>
+                        <div class="col-6">
+                            <label for="periodEnd" class="form-label">終了日</label>
+                            <input type="date" class="form-control" id="periodEnd" name="period_end" required>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="productId" class="form-label">商品（商品別目標の場合）</label>
+                        <select class="form-select" id="productId" name="product_id">
+                            <option value="">全商品</option>
+                            <option value="p001">エアクリーン Pro</option>
+                            <option value="p002">エアクリーン Business</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="description" class="form-label">説明</label>
+                        <textarea class="form-control" id="description" name="description" rows="3" 
+                                  placeholder="目標の詳細や背景を記録してください"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+                <button type="button" class="btn btn-primary" onclick="saveTarget()">保存</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// 目標一覧を読み込み
+function loadTargets() {
+    fetch('/api/targets')
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                console.error('Error:', data.error);
+                return;
+            }
+            
+            updateTargetsList(data.targets || []);
+        })
+        .catch(error => {
+            console.error('Error loading targets:', error);
+        });
+}
+
+function updateTargetsList(targets) {
+    const targetsList = document.getElementById('targetsList');
+    
+    if (targets.length === 0) {
+        targetsList.innerHTML = `
+            <div class="text-center text-muted py-3">
+                <i class="bi bi-bullseye"></i>
+                目標が設定されていません
+            </div>
+        `;
+        return;
+    }
+    
+    let html = '';
+    let summary = {
+        achieved: 0,
+        on_track: 0,
+        behind: 0,
+        critical: 0,
+        total: targets.length
+    };
+    
+    targets.forEach(target => {
+        const progressClass = getProgressClass(target.achievement_rate);
+        const progressText = getProgressText(target.achievement_rate);
+        
+        // サマリー更新
+        if (target.achievement_rate >= 100) summary.achieved++;
+        else if (target.achievement_rate >= 80) summary.on_track++;
+        else if (target.achievement_rate >= 50) summary.behind++;
+        else summary.critical++;
+        
+        html += `
+            <div class="card mb-3">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-6">
+                            <h6 class="card-title">${getTargetTypeLabel(target.target_type)}</h6>
+                            <p class="card-text text-muted mb-1">${target.description}</p>
+                            <small class="text-muted">${target.period_start} ～ ${target.period_end}</small>
+                        </div>
+                        <div class="col-md-3 text-center">
+                            <div class="h5 mb-1">${formatTargetValue(target.target_type, target.current_value)} / ${formatTargetValue(target.target_type, target.target_value)}</div>
+                            <small class="text-muted">現在値 / 目標値</small>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="d-flex align-items-center">
+                                <div class="progress flex-grow-1 me-2" style="height: 8px;">
+                                    <div class="progress-bar ${progressClass}" role="progressbar" 
+                                         style="width: ${Math.min(target.achievement_rate, 100)}%"></div>
+                                </div>
+                                <span class="badge ${progressClass.replace('bg-', 'bg-')} ms-2">
+                                    ${target.achievement_rate}%
+                                </span>
+                            </div>
+                            <small class="text-muted">${progressText}</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    targetsList.innerHTML = html;
+    
+    // サマリー更新
+    updateTargetSummary(summary);
+}
+
+function updateTargetSummary(summary) {
+    document.getElementById('achievedCount').textContent = summary.achieved;
+    document.getElementById('criticalCount').textContent = summary.critical;
+    
+    if (summary.total > 0) {
+        const achievedPercent = (summary.achieved / summary.total) * 100;
+        const onTrackPercent = (summary.on_track / summary.total) * 100;
+        const behindPercent = (summary.behind / summary.total) * 100;
+        const criticalPercent = (summary.critical / summary.total) * 100;
+        
+        document.getElementById('achievedBar').style.width = achievedPercent + '%';
+        document.getElementById('onTrackBar').style.width = onTrackPercent + '%';
+        document.getElementById('behindBar').style.width = behindPercent + '%';
+        document.getElementById('criticalBar').style.width = criticalPercent + '%';
+    }
+    
+    // 推奨アクション更新
+    updateRecommendations(summary);
+}
+
+function updateRecommendations(summary) {
+    const recommendations = document.getElementById('recommendations');
+    let html = '';
+    
+    if (summary.critical > 0) {
+        html += `
+            <div class="alert alert-danger alert-sm">
+                <i class="bi bi-exclamation-triangle"></i>
+                ${summary.critical}件の目標が要注意状態です。上司への相談をお勧めします。
+            </div>
+        `;
+    }
+    
+    if (summary.behind > 0) {
+        html += `
+            <div class="alert alert-warning alert-sm">
+                <i class="bi bi-clock"></i>
+                ${summary.behind}件の目標で遅れが生じています。アクションプランの見直しが必要です。
+            </div>
+        `;
+    }
+    
+    if (summary.achieved > 0) {
+        html += `
+            <div class="alert alert-success alert-sm">
+                <i class="bi bi-check-circle"></i>
+                ${summary.achieved}件の目標を達成しました！素晴らしい成果です。
+            </div>
+        `;
+    }
+    
+    if (html === '') {
+        html = `
+            <div class="text-center text-muted">
+                <i class="bi bi-lightbulb"></i>
+                現在特別な推奨事項はありません
+            </div>
+        `;
+    }
+    
+    recommendations.innerHTML = html;
+}
+
+function getProgressClass(rate) {
+    if (rate >= 100) return 'bg-success';
+    if (rate >= 80) return 'bg-info';
+    if (rate >= 50) return 'bg-warning';
+    return 'bg-danger';
+}
+
+function getProgressText(rate) {
+    if (rate >= 100) return '達成';
+    if (rate >= 80) return '順調';
+    if (rate >= 50) return '遅れ気味';
+    return '要注意';
+}
+
+function getTargetTypeLabel(type) {
+    const labels = {
+        'sales_amount': '売上目標',
+        'profit': '利益目標',
+        'quantity': '販売数量目標',
+        'new_customer': '新規顧客獲得目標'
+    };
+    return labels[type] || type;
+}
+
+function formatTargetValue(type, value) {
+    if (type === 'sales_amount' || type === 'profit') {
+        return '¥' + value.toLocaleString();
+    }
+    return value.toLocaleString();
+}
+
+function saveTarget() {
+    const formData = new FormData(document.getElementById('targetForm'));
+    const targetData = {
+        target_type: formData.get('target_type'),
+        target_value: parseFloat(formData.get('target_value')),
+        period_start: formData.get('period_start'),
+        period_end: formData.get('period_end'),
+        product_id: formData.get('product_id') || null,
+        description: formData.get('description') || ''
+    };
+    
+    fetch('/api/targets', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            action: 'create',
+            target_data: targetData
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            alert('エラー: ' + data.error);
+            return;
+        }
+        
+        alert('目標を設定しました');
+        
+        // モーダルを閉じる
+        const modal = bootstrap.Modal.getInstance(document.getElementById('targetModal'));
+        modal.hide();
+        
+        // フォームをクリア
+        document.getElementById('targetForm').reset();
+        
+        // 目標一覧を再読み込み
+        loadTargets();
+    })
+    .catch(error => {
+        console.error('Error saving target:', error);
+        alert('目標の設定に失敗しました');
+    });
+}
+
+// ページ読み込み時に目標一覧を読み込み
+document.addEventListener('DOMContentLoaded', function() {
+    loadTargets();
+    
+    // デフォルト日付設定
+    const today = new Date();
+    const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+    const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+    
+    document.getElementById('periodStart').value = firstDay.toISOString().split('T')[0];
+    document.getElementById('periodEnd').value = lastDay.toISOString().split('T')[0];
+});
+</script>
+
+<style>
+.alert-sm {
+    padding: 0.5rem;
+    margin-bottom: 0.5rem;
+    font-size: 0.875rem;
+}
+</style>
+{% endblock %}

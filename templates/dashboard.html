@@ -1,0 +1,322 @@
+{% extends "base.html" %}
+
+{% block title %}ダッシュボード - 営業管理システム{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1><i class="bi bi-house"></i> ダッシュボード</h1>
+    <button class="btn btn-outline-primary" onclick="refreshDashboard()">
+        <i class="bi bi-arrow-clockwise"></i> 更新
+    </button>
+</div>
+
+<!-- 統計カード -->
+<div class="row mb-4" id="statsCards">
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <div class="small">日報提出率</div>
+                        <div class="h3" id="submissionRate">--%</div>
+                    </div>
+                    <i class="bi bi-journal-text fa-2x"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <div class="small">目標達成率</div>
+                        <div class="h3" id="achievementRate">--%</div>
+                    </div>
+                    <i class="bi bi-bullseye fa-2x"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="card bg-info text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <div class="small">今月の売上</div>
+                        <div class="h3" id="monthlySales">¥--</div>
+                    </div>
+                    <i class="bi bi-currency-yen fa-2x"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="card bg-warning text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <div class="small">アラート</div>
+                        <div class="h3" id="alertCount">--件</div>
+                    </div>
+                    <i class="bi bi-bell fa-2x"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- アラート一覧 -->
+    <div class="col-lg-6 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-bell"></i> 重要なお知らせ</h5>
+            </div>
+            <div class="card-body">
+                <div id="alertsList">
+                    <div class="text-center text-muted py-3">
+                        <i class="bi bi-arrow-clockwise spin"></i>
+                        データを読み込み中...
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 最近の活動 -->
+    <div class="col-lg-6 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-clock-history"></i> 最近の活動</h5>
+            </div>
+            <div class="card-body">
+                <div id="recentActivities">
+                    <div class="text-center text-muted py-3">
+                        <i class="bi bi-arrow-clockwise spin"></i>
+                        データを読み込み中...
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- 目標進捗チャート -->
+    <div class="col-lg-8 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-graph-up"></i> 目標進捗状況</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="targetProgressChart" height="100"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <!-- クイックアクション -->
+    <div class="col-lg-4 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-lightning"></i> クイックアクション</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <a href="{{ url_for('daily_reports') }}" class="btn btn-primary">
+                        <i class="bi bi-journal-plus"></i> 今日の日報作成
+                    </a>
+                    <a href="{{ url_for('targets') }}" class="btn btn-success">
+                        <i class="bi bi-plus-circle"></i> 新しい目標設定
+                    </a>
+                    <a href="{{ url_for('products') }}" class="btn btn-info">
+                        <i class="bi bi-box"></i> 商品在庫確認
+                    </a>
+                    <a href="{{ url_for('analytics') }}" class="btn btn-warning">
+                        <i class="bi bi-graph-up-arrow"></i> 売上分析
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let targetProgressChart;
+
+// ダッシュボードデータを読み込み
+function loadDashboardData() {
+    fetch('/api/dashboard')
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                console.error('Error:', data.error);
+                return;
+            }
+            
+            // 統計カード更新
+            updateStatsCards(data);
+            
+            // アラート一覧更新
+            updateAlertsList(data.alerts || []);
+            
+            // 最近の活動更新
+            updateRecentActivities(data.recent_activities || []);
+            
+            // 目標進捗チャート更新
+            updateTargetProgressChart(data.target_summary || {});
+        })
+        .catch(error => {
+            console.error('Error loading dashboard data:', error);
+        });
+}
+
+function updateStatsCards(data) {
+    const reportStats = data.report_statistics || {};
+    const targetSummary = data.target_summary || {};
+    
+    document.getElementById('submissionRate').textContent = 
+        Math.round(reportStats.submission_rate || 0) + '%';
+    
+    document.getElementById('achievementRate').textContent = 
+        Math.round(targetSummary.average_achievement_rate || 0) + '%';
+    
+    document.getElementById('monthlySales').textContent = 
+        '¥' + (1000000).toLocaleString(); // サンプル値
+    
+    document.getElementById('alertCount').textContent = 
+        (data.alerts ? data.alerts.length : 0) + '件';
+}
+
+function updateAlertsList(alerts) {
+    const alertsList = document.getElementById('alertsList');
+    
+    if (alerts.length === 0) {
+        alertsList.innerHTML = `
+            <div class="text-center text-muted py-3">
+                <i class="bi bi-check-circle text-success"></i>
+                現在アラートはありません
+            </div>
+        `;
+        return;
+    }
+    
+    let html = '';
+    alerts.forEach(alert => {
+        const levelIcon = alert.level === 'critical' ? 'exclamation-triangle text-danger' : 
+                         alert.level === 'warning' ? 'exclamation-circle text-warning' : 
+                         'info-circle text-info';
+        
+        html += `
+            <div class="alert alert-${alert.level === 'critical' ? 'danger' : alert.level === 'warning' ? 'warning' : 'info'} alert-sm">
+                <i class="bi bi-${levelIcon}"></i>
+                <strong>${alert.title}</strong><br>
+                <small>${alert.message}</small>
+            </div>
+        `;
+    });
+    
+    alertsList.innerHTML = html;
+}
+
+function updateRecentActivities(activities) {
+    const activitiesList = document.getElementById('recentActivities');
+    
+    if (activities.length === 0) {
+        activitiesList.innerHTML = `
+            <div class="text-center text-muted py-3">
+                <i class="bi bi-journal"></i>
+                最近の活動がありません
+            </div>
+        `;
+        return;
+    }
+    
+    let html = '';
+    activities.forEach(activity => {
+        const statusBadge = activity.status === 'approved' ? 'success' : 
+                           activity.status === 'submitted' ? 'warning' : 'secondary';
+        
+        html += `
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <div>
+                    <strong>${activity.date}</strong><br>
+                    <small>訪問${activity.visits_count}件、売上${activity.sales_count}件</small>
+                </div>
+                <span class="badge bg-${statusBadge}">${activity.status}</span>
+            </div>
+        `;
+    });
+    
+    activitiesList.innerHTML = html;
+}
+
+function updateTargetProgressChart(targetSummary) {
+    const ctx = document.getElementById('targetProgressChart').getContext('2d');
+    
+    if (targetProgressChart) {
+        targetProgressChart.destroy();
+    }
+    
+    targetProgressChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['達成', '順調', '遅れ気味', '要注意'],
+            datasets: [{
+                data: [
+                    targetSummary.achieved_targets || 0,
+                    targetSummary.on_track_targets || 0,
+                    targetSummary.behind_targets || 0,
+                    targetSummary.critical_targets || 0
+                ],
+                backgroundColor: [
+                    '#28a745',
+                    '#17a2b8',
+                    '#ffc107',
+                    '#dc3545'
+                ]
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+}
+
+function refreshDashboard() {
+    loadDashboardData();
+}
+
+// ページ読み込み時にダッシュボードデータを読み込み
+document.addEventListener('DOMContentLoaded', function() {
+    loadDashboardData();
+});
+</script>
+
+<style>
+.spin {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.alert-sm {
+    padding: 0.5rem;
+    margin-bottom: 0.5rem;
+    font-size: 0.875rem;
+}
+</style>
+{% endblock %}
