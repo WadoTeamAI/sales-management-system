@@ -3,7 +3,7 @@
 空気清浄機販売営業向け日報・目標管理システム - Webアプリケーション
 """
 
-from flask import Flask, render_template, request, jsonify, session, redirect, url_for
+from flask import Flask, render_template, request, jsonify, session, redirect, url_for, send_from_directory
 from datetime import datetime, date, timedelta
 import logging
 import json
@@ -125,6 +125,11 @@ def team():
         return redirect(url_for('dashboard'))
     
     return render_template('team.html')
+
+@app.route('/presentation')
+def presentation():
+    """プレゼンテーションファイル"""
+    return send_from_directory(app.root_path, 'advanced_presentation.html')
 
 # API エンドポイント
 @app.route('/api/dashboard')
