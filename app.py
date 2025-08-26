@@ -129,7 +129,7 @@ def team():
 @app.route('/presentation')
 def presentation():
     """プレゼンテーションファイル"""
-    return send_from_directory(app.root_path, 'advanced_presentation.html')
+    return send_from_directory('presentation', 'advanced_presentation.html')
 
 # API エンドポイント
 @app.route('/api/dashboard')
