@@ -6,7 +6,57 @@
 
 ## 🌐 サポートされるプラットフォーム
 
-### 1. Heroku（推奨）
+### 1. Vercel（最新推奨）
+
+#### 必要なファイル
+- `vercel.json`: Vercel設定ファイル
+- `wsgi.py`: WSGIエントリーポイント
+- `requirements.txt`: Python依存関係
+
+#### デプロイ手順
+
+```bash
+# 1. Vercel CLIインストール（未インストールの場合）
+npm install -g vercel
+
+# 2. Vercelログイン
+vercel login
+
+# 3. プロジェクトディレクトリで初期化
+vercel
+
+# 4. 本番デプロイ
+vercel --prod
+```
+
+#### 環境変数設定
+
+```bash
+# Vercel Dashboard または CLI で設定
+vercel env add SECRET_KEY production
+# 安全なランダム文字列を入力
+
+vercel env add FLASK_ENV production
+# "production" を入力
+
+vercel env add FLASK_DEBUG production  
+# "false" を入力
+```
+
+### 2. Render.com（Flask推奨）
+
+#### 必要なファイル
+- `render.yaml`: Render設定ファイル
+
+#### デプロイ手順
+
+1. Render.comにGitHubアカウントでログイン
+2. 「New」→「Web Service」
+3. GitHubリポジトリを選択
+4. 設定は `render.yaml` から自動読み込み
+5. 「Create Web Service」をクリック
+
+### 3. Heroku（従来推奨）
 
 #### 必要なファイル
 - `Procfile`: Heroku用の起動設定

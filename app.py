@@ -19,7 +19,13 @@ logger = logging.getLogger(__name__)
 
 # Flaskアプリケーション初期化
 app = Flask(__name__)
-app.secret_key = 'your-secret-key-change-in-production'
+app.secret_key = os.environ.get('SECRET_KEY', 'your-secret-key-change-in-production')
+
+# Vercel環境での設定調整
+if os.environ.get('VERCEL'):
+    app.config['SESSION_COOKIE_SECURE'] = True
+    app.config['SESSION_COOKIE_HTTPONLY'] = True
+    app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 
 # グローバルアプリケーションインスタンス
 sales_app = SalesManagementApp()
